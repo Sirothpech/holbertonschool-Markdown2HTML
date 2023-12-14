@@ -30,25 +30,28 @@ def convert_line(line):
     # Check for heading
     if line.lstrip().startswith('#'):
         count = line.lstrip().count('#')
+        # Close list if inside one
         if convert_line.in_list:
             convert_line.in_list = False
-            return "</ul>\n<h{0}>{1}</h{0}>\n".format(count, line.replace('#' * count, '').strip())
+            return "\n</{0}>\n<h{1}>{2}</h{1}>\n".format(convert_line.list_type, count, line.replace('#' * count, '').strip())
         return "<h{0}>{1}</h{0}>\n".format(count, line.replace('#' * count, '').strip())
     # Check for list item
-    elif line.lstrip().startswith('- '):
+    elif line.lstrip().startswith('- ') or line.lstrip().startswith('* '):
+        convert_line.list_type = "ul" if line.lstrip().startswith('- ') else "ol"
         if not convert_line.in_list:
             convert_line.in_list = True
-            return "<ul>\n    <li>{}</li>".format(line[2:].strip())
+            return "<{0}>\n    <li>{1}</li>".format(convert_line.list_type, line[2:].strip())
         return "\n    <li>{}</li>".format(line[2:].strip())
     # Check if inside a list
     elif line.strip() == '' and convert_line.in_list:
         convert_line.in_list = False
-        return "\n</ul>\n"
+        return "\n</{0}>\n".format(convert_line.list_type)
     # Default: treat as a paragraph
     return "{}\n".format(line.strip())
 
-# Initialize the in_list attribute
+# Initialize the in_list and list_type attributes
 convert_line.in_list = False
+convert_line.list_type = None
 
 if __name__ == "__main__":
     # Vérifie si le nombre d'arguments est correct
@@ -73,10 +76,9 @@ if __name__ == "__main__":
             # Écrit la ligne convertie dans le fichier HTML
             html.write(line)
 
-        # Ferme la balise ul à la fin du fichier s'il y en a une ouverte
+        # Ferme la balise ul/ol à la fin du fichier s'il y en a une ouverte
         if convert_line.in_list:
-            html.write("\n</ul>\n")
+            html.write("\n</{0}>\n".format(convert_line.list_type))
 
     # Termine le script avec le code de sortie 0
     sys.exit(0)
-
