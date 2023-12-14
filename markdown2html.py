@@ -23,15 +23,32 @@ Requirements:
 import sys
 import os
 
-def convert_headings(line):
+def convert_line(line):
     """
-    Convert Markdown headings to HTML headings.
+    Convert Markdown line to HTML.
     """
-    count = line.count('#')
-    if count > 0:
-        line = line.replace('#' * count, '').strip()
-        return f"<h{count}>{line}</h{count}>\n"
-    return line
+    # Check for heading
+    if line.lstrip().startswith('#'):
+        count = line.lstrip().count('#')
+        if convert_line.in_list:
+            convert_line.in_list = False
+            return "</ul>\n<h{0}>{1}</h{0}>\n".format(count, line.replace('#' * count, '').strip())
+        return "<h{0}>{1}</h{0}>\n".format(count, line.replace('#' * count, '').strip())
+    # Check for list item
+    elif line.lstrip().startswith('- '):
+        if not convert_line.in_list:
+            convert_line.in_list = True
+            return "<ul>\n    <li>{}</li>".format(line[2:].strip())
+        return "\n    <li>{}</li>".format(line[2:].strip())
+    # Check if inside a list
+    elif line.strip() == '' and convert_line.in_list:
+        convert_line.in_list = False
+        return "\n</ul>\n"
+    # Default: treat as a paragraph
+    return "{}\n".format(line.strip())
+
+# Initialize the in_list attribute
+convert_line.in_list = False
 
 if __name__ == "__main__":
     # Vérifie si le nombre d'arguments est correct
@@ -51,12 +68,15 @@ if __name__ == "__main__":
     with open(markdown_file, 'r') as md, open(html_file, 'w') as html:
         # Parcourt chaque ligne du fichier Markdown
         for line in md:
-            # Convert headings
-            line = convert_headings(line)
-            # Additional code for other conversions
-
+            # Convert line
+            line = convert_line(line)
             # Écrit la ligne convertie dans le fichier HTML
             html.write(line)
 
+        # Ferme la balise ul à la fin du fichier s'il y en a une ouverte
+        if convert_line.in_list:
+            html.write("\n</ul>\n")
+
     # Termine le script avec le code de sortie 0
     sys.exit(0)
+
