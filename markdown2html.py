@@ -44,48 +44,59 @@ def convert_line(line):
     Convert Markdown line to HTML.
     """
     # Check for ((...))
-    if line.strip().startswith('(('):
-        content = re.search(r'\(\((.*?)\)\)', line).group(1)
-        return f"<p>\n{process_inline_formatting(remove_character(content, 'c'))}\n</p>"
-    
+    if '((' in line:
+        # Recherche toutes les occurrences du motif '((...))' dans la ligne
+        matches = re.findall(r'\(\((.*?)\)\)', line)
+
+        # Si des occurrences sont trouvées
+        if matches:
+            # Parcourt toutes les occurrences et remplace par la version modifiée
+            for match in matches:
+                modified_content = remove_character(match, 'c')
+                line = line.replace(f"(({match}))", f"{modified_content}")
+            
+            # Ajoute la balise <p> autour de la ligne modifiée
+            line = f"<p>\n{line.strip()}\n</p>\n"
+        
+        # Renvoie la ligne modifiée
+        return line
+
     # Check for [[...]]
     elif '[[' in line:
         # Recherche toutes les occurrences du motif '[[...]]' dans la ligne
         matches = re.findall(r'\[\[(.*?)\]\]', line)
-        
-        # Parcourt toutes les occurrences trouvées
-        for match in matches:
-            # Remplace chaque occurrence par la version MD5
-            line = line.replace(f"[[{match}]]", md5_hash(match))
+
+        # Si des occurrences sont trouvées
+        if matches:
+            # Parcourt toutes les occurrences et remplace par la version MD5
+            for match in matches:
+                line = line.replace(f"[[{match}]]", md5_hash(match))
 
             # Ajoute la balise <p> autour de la ligne modifiée
-            line = f"<p>\n{line.strip()}\n</p>"
+            line = f"<p>\n{line.strip()}\n</p>\n"
 
         # Renvoie la ligne modifiée
         return line
-    
+
     # Check for heading
     elif line.lstrip().startswith('#'):
         count = line.lstrip().count('#')
         # Close list if inside one
         if convert_line.in_list:
             convert_line.in_list = False
-            return "\n</{0}>\n<h{1}>{2}</h{1}>\n".format(convert_line.list_type, count, process_inline_formatting(line.replace('#' * count, '').strip()))
-        return "<h{0}>{1}</h{0}>\n".format(count, process_inline_formatting(line.replace('#' * count, '').strip()))
-    
+            return "\n</{0}>\n<h{1}>{2}</h{1}>\n".format(convert_line.list_type, count, line.replace('#' * count, '').strip())
+        return "<h{0}>{1}</h{0}>\n".format(count, line.replace('#' * count, '').strip())
     # Check for list item
     elif line.lstrip().startswith('- ') or line.lstrip().startswith('* '):
         convert_line.list_type = "ul" if line.lstrip().startswith('- ') else "ol"
         if not convert_line.in_list:
             convert_line.in_list = True
-            return "<{0}>\n    <li>{1}</li>".format(convert_line.list_type, process_inline_formatting(line[2:].strip()))
-        return "\n    <li>{}</li>".format(process_inline_formatting(line[2:].strip()))
-    
+            return "<{0}>\n    <li>{1}</li>".format(convert_line.list_type, line[2:].strip())
+        return "\n    <li>{}</li>".format(line[2:].strip())
     # Check if inside a list
     elif line.strip() == '' and convert_line.in_list:
         convert_line.in_list = False
         return "\n</{0}>\n".format(convert_line.list_type)
-    
     # Check for paragraph
     elif line.strip() != '' and not convert_line.in_paragraph:
         convert_line.in_paragraph = True
@@ -95,9 +106,8 @@ def convert_line(line):
         return "\n</p>\n"
     elif line.strip() != '' and convert_line.in_paragraph:
         return "\n<br/>\n{}".format(process_inline_formatting(line.strip()))
-    
     # Default: treat as a paragraph
-    return "{}\n".format(process_inline_formatting(line.strip()))
+    return ""
 
 def process_inline_formatting(text):
     """
@@ -109,13 +119,13 @@ def process_inline_formatting(text):
     text = re.sub(r'__(.*?)__', r'<em>\1</em>', text)
     return text
 
-# Initialize the in_list, list_type, and in_paragraph attributes
-convert_line.in_list = False
-convert_line.list_type = None
-convert_line.in_paragraph = False
-
 if __name__ == "__main__":
-    # Vérifie si le nombre d'arguments est correct
+    # Initialize the in_list, list_type, and in_paragraph attributes
+    convert_line.in_list = False
+    convert_line.list_type = None
+    convert_line.in_paragraph = False
+
+    # Check command line arguments
     if len(sys.argv) < 3:
         sys.stderr.write("Usage: ./markdown2html.py README.md README.html\n")
         sys.exit(1)
@@ -123,26 +133,26 @@ if __name__ == "__main__":
     markdown_file = sys.argv[1]
     html_file = sys.argv[2]
 
-    # Vérifie si le fichier Markdown existe
+    # Check if the Markdown file exists
     if not os.path.exists(markdown_file):
         sys.stderr.write(f"Missing {markdown_file}\n")
         sys.exit(1)
 
-    # Ouvre le fichier Markdown et lit toutes les lignes
+    # Open the Markdown file and read all lines
     with open(markdown_file, 'r') as md, open(html_file, 'w') as html:
-        # Parcourt chaque ligne du fichier Markdown
+        # Process each line of the Markdown file
         for line in md:
             # Convert line
             line = convert_line(line)
-            # Écrit la ligne convertie dans le fichier HTML
+            # Write the converted line to the HTML file
             html.write(line)
 
-        # Ferme la balise ul/ol à la fin du fichier s'il y en a une ouverte
+        # Close the ul/ol tag at the end of the file if one is open
         if convert_line.in_list:
             html.write("\n</{0}>\n".format(convert_line.list_type))
-        # Ferme le paragraphe à la fin du fichier s'il y en a un ouvert
+        # Close the paragraph at the end of the file if one is open
         if convert_line.in_paragraph:
             html.write("\n</p>\n")
 
-    # Termine le script avec le code de sortie 0
+    # Exit the script with exit code 0
     sys.exit(0)
