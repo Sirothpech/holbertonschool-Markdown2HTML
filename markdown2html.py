@@ -23,19 +23,56 @@ Requirements:
 import sys
 import os
 import re
+import hashlib
+
+def md5_hash(content):
+    """
+    Convert the content to MD5 hash (lowercase).
+    """
+    md5 = hashlib.md5()
+    md5.update(content.encode('utf-8'))
+    return md5.hexdigest()
+
+def remove_character(content, char):
+    """
+    Remove all occurrences of the specified character (case insensitive).
+    """
+    return content.replace(char.lower(), '').replace(char.upper(), '')
 
 def convert_line(line):
     """
     Convert Markdown line to HTML.
     """
+    # Check for ((...))
+    if line.strip().startswith('(('):
+        content = re.search(r'\(\((.*?)\)\)', line).group(1)
+        return f"<p>\n{process_inline_formatting(remove_character(content, 'c'))}\n</p>"
+    
+    # Check for [[...]]
+    elif '[[' in line:
+        # Recherche toutes les occurrences du motif '[[...]]' dans la ligne
+        matches = re.findall(r'\[\[(.*?)\]\]', line)
+        
+        # Parcourt toutes les occurrences trouvées
+        for match in matches:
+            # Remplace chaque occurrence par la version MD5
+            line = line.replace(f"[[{match}]]", md5_hash(match))
+
+            # Ajoute la balise <p> autour de la ligne modifiée
+            line = f"<p>\n{line.strip()}\n</p>"
+
+        # Renvoie la ligne modifiée
+        return line
+    
     # Check for heading
-    if line.lstrip().startswith('#'):
+    elif line.lstrip().startswith('#'):
         count = line.lstrip().count('#')
         # Close list if inside one
         if convert_line.in_list:
             convert_line.in_list = False
             return "\n</{0}>\n<h{1}>{2}</h{1}>\n".format(convert_line.list_type, count, process_inline_formatting(line.replace('#' * count, '').strip()))
         return "<h{0}>{1}</h{0}>\n".format(count, process_inline_formatting(line.replace('#' * count, '').strip()))
+    
     # Check for list item
     elif line.lstrip().startswith('- ') or line.lstrip().startswith('* '):
         convert_line.list_type = "ul" if line.lstrip().startswith('- ') else "ol"
@@ -43,10 +80,12 @@ def convert_line(line):
             convert_line.in_list = True
             return "<{0}>\n    <li>{1}</li>".format(convert_line.list_type, process_inline_formatting(line[2:].strip()))
         return "\n    <li>{}</li>".format(process_inline_formatting(line[2:].strip()))
+    
     # Check if inside a list
     elif line.strip() == '' and convert_line.in_list:
         convert_line.in_list = False
         return "\n</{0}>\n".format(convert_line.list_type)
+    
     # Check for paragraph
     elif line.strip() != '' and not convert_line.in_paragraph:
         convert_line.in_paragraph = True
@@ -56,16 +95,17 @@ def convert_line(line):
         return "\n</p>\n"
     elif line.strip() != '' and convert_line.in_paragraph:
         return "\n<br/>\n{}".format(process_inline_formatting(line.strip()))
+    
     # Default: treat as a paragraph
     return "{}\n".format(process_inline_formatting(line.strip()))
 
 def process_inline_formatting(text):
     """
-    Process inline formatting (bold, italic, underline) in the given text.
+    Process inline formatting (bold, italic) in the given text.
     """
     # Bold
     text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', text)
-    # Italic
+    # Underline
     text = re.sub(r'__(.*?)__', r'<em>\1</em>', text)
     return text
 
@@ -106,4 +146,3 @@ if __name__ == "__main__":
 
     # Termine le script avec le code de sortie 0
     sys.exit(0)
-
