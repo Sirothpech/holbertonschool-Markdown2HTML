@@ -46,12 +46,22 @@ def convert_line(line):
     elif line.strip() == '' and convert_line.in_list:
         convert_line.in_list = False
         return "\n</{0}>\n".format(convert_line.list_type)
+    # Check for paragraph
+    elif line.strip() != '' and not convert_line.in_paragraph:
+        convert_line.in_paragraph = True
+        return "<p>\n{}".format(line.strip())
+    elif line.strip() == '' and convert_line.in_paragraph:
+        convert_line.in_paragraph = False
+        return "\n</p>\n"
+    elif line.strip() != '' and convert_line.in_paragraph:
+        return "\n<br/>\n{}".format(line.strip())
     # Default: treat as a paragraph
     return "{}\n".format(line.strip())
 
-# Initialize the in_list and list_type attributes
+# Initialize the in_list, list_type, and in_paragraph attributes
 convert_line.in_list = False
 convert_line.list_type = None
+convert_line.in_paragraph = False
 
 if __name__ == "__main__":
     # Vérifie si le nombre d'arguments est correct
@@ -79,6 +89,9 @@ if __name__ == "__main__":
         # Ferme la balise ul/ol à la fin du fichier s'il y en a une ouverte
         if convert_line.in_list:
             html.write("\n</{0}>\n".format(convert_line.list_type))
+        # Ferme le paragraphe à la fin du fichier s'il y en a un ouvert
+        if convert_line.in_paragraph:
+            html.write("\n</p>\n")
 
     # Termine le script avec le code de sortie 0
     sys.exit(0)
