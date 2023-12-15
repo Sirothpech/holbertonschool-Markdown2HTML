@@ -22,6 +22,7 @@ Requirements:
 
 import sys
 import os
+import re
 
 def convert_line(line):
     """
@@ -33,15 +34,15 @@ def convert_line(line):
         # Close list if inside one
         if convert_line.in_list:
             convert_line.in_list = False
-            return "\n</{0}>\n<h{1}>{2}</h{1}>\n".format(convert_line.list_type, count, line.replace('#' * count, '').strip())
-        return "<h{0}>{1}</h{0}>\n".format(count, line.replace('#' * count, '').strip())
+            return "\n</{0}>\n<h{1}>{2}</h{1}>\n".format(convert_line.list_type, count, process_inline_formatting(line.replace('#' * count, '').strip()))
+        return "<h{0}>{1}</h{0}>\n".format(count, process_inline_formatting(line.replace('#' * count, '').strip()))
     # Check for list item
     elif line.lstrip().startswith('- ') or line.lstrip().startswith('* '):
         convert_line.list_type = "ul" if line.lstrip().startswith('- ') else "ol"
         if not convert_line.in_list:
             convert_line.in_list = True
-            return "<{0}>\n    <li>{1}</li>".format(convert_line.list_type, line[2:].strip())
-        return "\n    <li>{}</li>".format(line[2:].strip())
+            return "<{0}>\n    <li>{1}</li>".format(convert_line.list_type, process_inline_formatting(line[2:].strip()))
+        return "\n    <li>{}</li>".format(process_inline_formatting(line[2:].strip()))
     # Check if inside a list
     elif line.strip() == '' and convert_line.in_list:
         convert_line.in_list = False
@@ -49,14 +50,24 @@ def convert_line(line):
     # Check for paragraph
     elif line.strip() != '' and not convert_line.in_paragraph:
         convert_line.in_paragraph = True
-        return "<p>\n{}".format(line.strip())
+        return "<p>\n{}".format(process_inline_formatting(line.strip()))
     elif line.strip() == '' and convert_line.in_paragraph:
         convert_line.in_paragraph = False
         return "\n</p>\n"
     elif line.strip() != '' and convert_line.in_paragraph:
-        return "\n<br/>\n{}".format(line.strip())
+        return "\n<br/>\n{}".format(process_inline_formatting(line.strip()))
     # Default: treat as a paragraph
-    return "{}\n".format(line.strip())
+    return "{}\n".format(process_inline_formatting(line.strip()))
+
+def process_inline_formatting(text):
+    """
+    Process inline formatting (bold, italic, underline) in the given text.
+    """
+    # Bold
+    text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', text)
+    # Italic
+    text = re.sub(r'__(.*?)__', r'<em>\1</em>', text)
+    return text
 
 # Initialize the in_list, list_type, and in_paragraph attributes
 convert_line.in_list = False
@@ -95,3 +106,4 @@ if __name__ == "__main__":
 
     # Termine le script avec le code de sortie 0
     sys.exit(0)
+
